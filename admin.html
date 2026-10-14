@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="el" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ψηφιακός Κατάλογος & QR Τραπεζιών</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- QR Code Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.2s ease-in-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .category-scroll-container {
+            overflow-x: auto !important;
+            overflow-y: hidden;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        .category-scroll-container::-webkit-scrollbar {
+            height: 4px;
+            display: block;
+        }
+        .category-scroll-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .category-scroll-container::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-full flex flex-col antialiased selection:bg-amber-500 selection:text-white">
+
+    <div id="app" class="flex-1 flex flex-col min-h-screen"></div>
+    <div id="modal-container"></div>
+
+    <script>
+        const STORAGE_KEY_CATEGORIES = 'menu_categories_v5';
+        const STORAGE_KEY_PRODUCTS = 'menu_products_v5';
+        const STORAGE_KEY_CONFIG = 'menu_config_v5';
+        const STORAGE_KEY_TABLES = 'menu_tables_v5';
+        const STORAGE_KEY_LANG = 'menu_lang_v5';
+
+        const translations = {
+            el: {
+                digitalMenu: 'Ψηφιακός Κατάλογος',
+                all: 'Όλα',
+                productsAndOptions: 'Προϊόντα & Ιδιότητες',
+                categories: 'Κατηγορίες',
+                tablesAndQr: 'Τραπέζια & QR Codes',
+                preview: 'Προεπισκόπηση PC / Mobile',
+                settings: 'Ρυθμίσεις',
+                newProduct: 'Νέο Προϊόν',
+                editProduct: 'Επεξεργασία Προϊόντος',
+                photo: 'Φωτογραφία',
+                nameAndTags: 'Όνομα & Tags',
+                category: 'Κατηγορία',
+                basePrice: 'Βασική Τιμή',
+                options: 'Ιδιότητες / Επιλογές',
+                actions: 'Ενέργειες',
+                noProducts: 'Δεν υπάρχουν προϊόντα.',
+                noOptions: 'Καμία ιδιότητα',
+                productNameEl: 'Όνομα Προϊόντος (Ελληνικά)',
+                productNameEn: 'Όνομα Προϊόντος (English)',
+                localUpload: 'Τοπικό Ανέβασμα (από Κινητό/PC)',
+                orImageURL: 'ή επικολλήστε URL εικόνας...',
+                propertiesAndCosts: 'Ιδιότητες & Extra Χρεώσεις',
+                tagsComma: 'Tags (χωρισμένα με κόμμα)',
+                descEl: 'Περιγραφή (Ελληνικά)',
+                descEn: 'Περιγραφή (English)',
+                cancel: 'Ακύρωση',
+                save: 'Αποθήκευση',
+                newCategory: 'Νέα Κατηγορία',
+                editCategory: 'Επεξεργασία Κατηγορίας',
+                catNameEl: 'Όνομα Κατηγορίας (Ελληνικά)',
+                catNameEn: 'Όνομα Κατηγορίας (English)',
+                iconName: 'Εικονίδιο (Lucide Name)',
+                tableNameOrArea: 'Όνομα Τραπεζιού / Χώρου',
+                newTable: 'Νέο Τραπέζι',
+                editTable: 'Επεξεργασία Τραπεζιού',
+                addTable: 'Προσθήκη Τραπεζιού',
+                print: 'Εκτύπωση',
+                open: 'Άνοιγμα',
+                storeSettings: 'Ρυθμίσεις Καταστήματος',
+                storeName: 'Όνομα Καταστήματος',
+                storeLogo: 'Λογότυπο Καταστήματος (Logo)',
+                storePhone: 'Τηλέφωνο Καταστήματος (για κλήσεις)',
+                currencySymbol: 'Σύμβολο Νομίσματος',
+                livePreview: 'Ζωντανή Προεπισκόπηση Καταλόγου',
+                mobile: 'Mobile (Κινητό)',
+                tablet: 'Tablet',
+                pcDesktop: 'PC (Desktop)',
+                menuAndOrder: 'Κατάλογος & Παραγγελία',
+                menuOrderSubtitle: 'Επιλέξτε τα αγαπημένα σας προϊόντα και καλέστε το κατάστημα!',
+                addToCart: 'Προσθήκη στο Καλάθι',
+                add: 'Προσθήκη',
+                viewCart: 'Προβολή Καλαθιού',
+                myCart: 'Το Καλάθι μου',
+                totalAmount: 'Συνολικό Ποσό',
+                placeOrderCall: 'Κάνε την παραγγελία σου (Κλήση: {phone})',
+                confirmDelete: 'Επιβεβαίωση Διαγραφής',
+                confirmDeleteMsg: 'Είστε βέβαιοι ότι θέλετε να προχωρήσετε;',
+                delete: 'Διαγραφή',
+                confirm: 'Επιβεβαίωση',
+                selectOptions: 'Επιλέξτε Ιδιότητες / Extra',
+                total: 'Σύνολο'
+            },
+            en: {
+                digitalMenu: 'Digital Menu',
+                all: 'All',
+                productsAndOptions: 'Products & Options',
+                categories: 'Categories',
+                tablesAndQr: 'Tables & QR Codes',
+                preview: 'PC / Mobile Preview',
+                settings: 'Settings',
+                newProduct: 'New Product',
+                editProduct: 'Edit Product',
+                photo: 'Photo',
+                nameAndTags: 'Name & Tags',
+                category: 'Category',
+                basePrice: 'Base Price',
+                options: 'Options / Add-ons',
+                actions: 'Actions',
+                noProducts: 'No products available.',
+                noOptions: 'No options',
+                productNameEl: 'Product Name (Greek)',
+                productNameEn: 'Product Name (English)',
+                localUpload: 'Upload Photo (Device)',
+                orImageURL: 'or paste image URL...',
+                propertiesAndCosts: 'Options & Extra Costs',
+                tagsComma: 'Tags (comma separated)',
+                descEl: 'Description (Greek)',
+                descEn: 'Description (English)',
+                cancel: 'Cancel',
+                save: 'Save',
+                newCategory: 'New Category',
+                editCategory: 'Edit Category',
+                catNameEl: 'Category Name (Greek)',
+                catNameEn: 'Category Name (English)',
+                iconName: 'Icon (Lucide Name)',
+                tableNameOrArea: 'Table / Area Name',
+                newTable: 'New Table',
+                editTable: 'Edit Table',
+                addTable: 'Add Table',
+                print: 'Print',
+                open: 'Open',
+                storeSettings: 'Store Settings',
+                storeName: 'Store Name',
+                storeLogo: 'Store Logo',
+                storePhone: 'Store Phone (for orders)',
+                currencySymbol: 'Currency Symbol',
+                livePreview: 'Live Menu Preview',
+                mobile: 'Mobile',
+                tablet: 'Tablet',
+                pcDesktop: 'PC (Desktop)',
+                menuAndOrder: 'Menu & Order',
+                menuOrderSubtitle: 'Select your items and call the store to place your order!',
+                addToCart: 'Add to Cart',
+                add: 'Add',
+                viewCart: 'View Cart',
+                myCart: 'My Cart',
+                totalAmount: 'Total Amount',
+                placeOrderCall: 'Call to Place Order ({phone})',
+                confirmDelete: 'Confirm Deletion',
+                confirmDeleteMsg: 'Are you sure you want to delete this item?',
+                delete: 'Delete',
+                confirm: 'Confirm',
+                selectOptions: 'Select Options / Extras',
+                total: 'Total'
+            }
+        };
+
+        function getCurrentLang() {
+            return localStorage.getItem(STORAGE_KEY_LANG) || 'el';
+        }
+        function setLanguage(lang) {
+            localStorage.setItem(STORAGE_KEY_LANG, lang);
+            renderApp();
+        }
+        function t(key) {
+            const lang = getCurrentLang();
+            return translations[lang]?.[key] || translations['el']?.[key] || key;
+        }
+
+        const defaultCategories = [
+            { id: 'cat-1', name: 'Καφέδες & Ροφήματα', nameEn: 'Coffee & Drinks', icon: 'coffee' },
+            { id: 'cat-2', name: 'Ψυχρά Ποτά & Αναψυκτικά', nameEn: 'Cold Drinks & Soft Drinks', icon: 'glass-water' },
+            { id: 'cat-3', name: 'Snacks & Φαγητά', nameEn: 'Snacks & Food', icon: 'utensils' },
+            { id: 'cat-4', name: 'Γλυκά & Specials', nameEn: 'Desserts & Specials', icon: 'cake' }
+        ];
+
+        const defaultProducts = [
+            { 
+                id: 'prod-1', 
+                categoryId: 'cat-1', 
+                name: 'Espresso', 
+                nameEn: 'Espresso Coffee',
+                price: 2.50, 
+                description: 'Αρωματικός espresso από 100% Arabica χαρμάνι.', 
+                descriptionEn: 'Aromatic espresso blend made from 100% Arabica beans.',
+                image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&q=80', 
+                tags: ['Δημοφιλές', 'Popular'],
+                options: [
+                    { name: 'Μονός', nameEn: 'Single', price: 0 },
+                    { name: 'Διπλός', nameEn: 'Double', price: 0.80 },
+                    { name: 'Γάλα Αμυγδάλου', nameEn: 'Almond Milk', price: 0.40 }
+                ]
+            },
+            { 
+                id: 'prod-2', 
+                categoryId: 'cat-1', 
+                name: 'Cappuccino', 
+                nameEn: 'Cappuccino',
+                price: 3.50, 
+                description: 'Αρωματικός καφές με βελούδινο αφρόγαλα.', 
+                descriptionEn: 'Rich coffee topped with silky smooth milk foam.',
+                image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=500&q=80', 
+                tags: [],
+                options: [
+                    { name: 'Μονός', nameEn: 'Single', price: 0 },
+                    { name: 'Διπλός', nameEn: 'Double', price: 0.70 }
+                ]
+            },
+            { 
+                id: 'prod-3', 
+                categoryId: 'cat-2', 
+                name: 'Φυσικός Χυμός Πορτοκάλι', 
+                nameEn: 'Fresh Orange Juice',
+                price: 4.50, 
+                description: 'Φρεσκοστυμμένος χυμός από επιλεγμένα πορτοκάλια.', 
+                descriptionEn: 'Freshly squeezed juice from premium oranges.',
+                image: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=500&q=80', 
+                tags: ['Φρέσκο'],
+                options: []
+            }
+        ];
+
+        const defaultTables = [
+            { id: 't-1', name: 'Τραπέζι 1' },
+            { id: 't-2', name: 'Τραπέζι 2' },
+            { id: 't-3', name: 'VIP Lounge' }
+        ];
+
+        const defaultConfig = {
+            storeName: 'Café & Restaurant',
+            phone: '2101234567',
+            currency: '€',
+            logoUrl: ''
+        };
+
+        let customerCart = [];
+        let activeCustomerCategory = 'all';
+
+        function getCategories() {
+            const data = localStorage.getItem(STORAGE_KEY_CATEGORIES);
+            return data ? JSON.parse(data) : defaultCategories;
+        }
+        function saveCategories(cats) { localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(cats)); }
+
+        function getProducts() {
+            const data = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+            return data ? JSON.parse(data) : defaultProducts;
+        }
+        function saveProducts(prods) { localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(prods)); }
+
+        function getConfig() {
+            const data = localStorage.getItem(STORAGE_KEY_CONFIG);
+            return data ? JSON.parse(data) : defaultConfig;
+        }
+        function saveConfig(cfg) { localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(cfg)); }
+
+        function getTables() {
+            const data = localStorage.getItem(STORAGE_KEY_TABLES);
+            return data ? JSON.parse(data) : defaultTables;
+        }
+        function saveTables(tables) { localStorage.setItem(STORAGE_KEY_TABLES, JSON.stringify(tables)); }
+
+        function handleImageUpload(fileInput, callback) {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            if (file.size > 2 * 1024 * 1024) {
+                showNotification('Η εικόνα είναι πολύ μεγάλη. Παρακαλώ επιλέξτε αρχείο κάτω των 2MB.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                callback(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showNotification(message, type = 'success') {
+            const container = document.getElementById('modal-container');
+            const notif = document.createElement('div');
+            notif.className = `fixed bottom-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white fade-in text-sm font-medium ${
+                type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-slate-800'
+            }`;
+            notif.innerHTML = `
+                <i data-lucide="${type === 'success' ? 'check-circle-2' : type === 'error' ? 'alert-triangle' : 'info'}" class="w-5 h-5"></i>
+                <span>${message}</span>
+            `;
+            container.appendChild(notif);
+            lucide.createIcons();
+            setTimeout(() => {
+                notif.style.opacity = '0';
+                notif.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => notif.remove(), 300);
+            }, 3000);
+        }
+
+        function showConfirmModal(title, message, onConfirm) {
+            const container = document.getElementById('modal-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 fade-in';
+            wrapper.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-slate-800 border border-slate-100">
+                    <div class="flex items-center gap-3 mb-3 text-rose-600">
+                        <div class="p-2.5 bg-rose-50 rounded-xl">
+                            <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900">${title}</h3>
+                    </div>
+                    <p class="text-slate-600 text-sm mb-6 leading-relaxed">${message}</p>
+                    <div class="flex justify-end gap-3">
+                        <button id="modal-cancel" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-sm transition-all">${t('cancel')}</button>
+                        <button id="modal-ok" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium text-sm shadow-lg shadow-rose-600/20 transition-all">${t('confirm')}</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(wrapper);
+            lucide.createIcons();
+
+            wrapper.querySelector('#modal-cancel').onclick = () => wrapper.remove();
+            wrapper.querySelector('#modal-ok').onclick = () => {
+                wrapper.remove();
+                onConfirm();
+            };
+        }
+
+        function isMobileDevice() {
+            return window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        function renderApp() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const view = urlParams.get('view');
+            const tableId = urlParams.get('table');
+
+            const appDiv = document.getElementById('app');
+            appDiv.innerHTML = '';
+
+            // Admin-only entry point: always show the administration panel.
+            renderDesktopAdminView(appDiv);
+            lucide.createIcons();
+        }
+
+        let currentAdminTab = 'products';
+        let previewDeviceMode = 'mobile';
+
+        function renderDesktopAdminView(container) {
+            const config = getConfig();
+            const currentLang = getCurrentLang();
+
+            container.innerHTML = `
+                <div class="flex h-screen overflow-hidden bg-slate-100">
+                    <!-- Sidebar -->
+                    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
+                        <div class="p-6 border-b border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 overflow-hidden shrink-0">
+                                    ${config.logoUrl ? `<img src="${config.logoUrl}" alt="Logo" class="w-full h-full object-cover" onerror="this.remove()">` : `<i data-lucide="store" class="w-5 h-5"></i>`}
+                                </div>
+                                <div class="min-w-0">
+                                    <h1 class="font-bold text-white text-sm truncate">${config.storeName}</h1>
+                                    <span class="text-xs text-indigo-400 font-medium">Adaptive Admin Panel</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Language Selector Button -->
+                        <div class="px-4 py-3 bg-slate-800/60 border-b border-slate-800/80 flex items-center justify-between">
+                            <span class="text-xs font-semibold text-slate-400">Language / Γλώσσα</span>
+                            <div class="flex gap-1 bg-slate-900 p-1 rounded-xl">
+                                <button onclick="setLanguage('el')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${currentLang === 'el' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}">
+                                    GR
+                                </button>
+                                <button onclick="setLanguage('en')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${currentLang === 'en' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}">
+                                    EN
+                                </button>
+                            </div>
+                        </div>
+
+                        <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto">
+                            <button onclick="switchAdminTab('products')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${currentAdminTab==='products'?'bg-indigo-600 text-white shadow-md shadow-indigo-600/30':'hover:bg-slate-800 text-slate-300'}">
+                                <i data-lucide="package" class="w-5 h-5"></i> ${t('productsAndOptions')}
+                            </button>
+                            <button onclick="switchAdminTab('categories')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${currentAdminTab==='categories'?'bg-indigo-600 text-white shadow-md shadow-indigo-600/30':'hover:bg-slate-800 text-slate-300'}">
+                                <i data-lucide="layers" class="w-5 h-5"></i> ${t('categories')}
+                            </button>
+                            <button onclick="switchAdminTab('qr')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${currentAdminTab==='qr'?'bg-indigo-600 text-white shadow-md shadow-indigo-600/30':'hover:bg-slate-800 text-slate-300'}">
+                                <i data-lucide="qr-code" class="w-5 h-5"></i> ${t('tablesAndQr')}
+                            </button>
+                            <button onclick="switchAdminTab('preview')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${currentAdminTab==='preview'?'bg-indigo-600 text-white shadow-md shadow-indigo-600/30':'hover:bg-slate-800 text-slate-300'}">
+                                <i data-lucide="monitor" class="w-5 h-5"></i> ${t('preview')}
+                            </button>
+                            <button onclick="switchAdminTab('settings')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${currentAdminTab==='settings'?'bg-indigo-600 text-white shadow-md shadow-indigo-600/30':'hover:bg-slate-800 text-slate-300'}">
+                                <i data-lucide="settings" class="w-5 h-5"></i> ${t('settings')}
+                            </button>
+                        </nav>
+                    </aside>
+
+                    <!-- Main Admin View Area -->
+                    <main id="desktop-admin-content" class="flex-1 overflow-y-auto p-8">
+                    </main>
+                </div>
+            `;
+            renderDesktopAdminContent();
+        }
+
+        function switchAdminTab(tab) {
+            currentAdminTab = tab;
+            renderDesktopAdminView(document.getElementById('app'));
+        }
+
+        function renderDesktopAdminContent() {
+            const container = document.getElementById('desktop-admin-content');
+            if (!container) return;
+
+            if (currentAdminTab === 'products') {
+                renderProductsAdmin(container);
+            } else if (currentAdminTab === 'categories') {
+                renderCategoriesAdmin(container);
+            } else if (currentAdminTab === 'qr') {
+                renderTablesAndQrAdmin(container);
+            } else if (currentAdminTab === 'preview') {
+                renderMobilePreviewAdmin(container);
+            } else if (currentAdminTab === 'settings') {
+                renderSettingsAdmin(container);
+            }
+        }
+
+        function renderProductsAdmin(container) {
+            const products = getProducts();
+            const categories = getCategories();
+            const config = getConfig();
+            const lang = getCurrentLang();
+
+            container.innerHTML = `
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">${t('productsAndOptions')}</h2>
+                        <p class="text-slate-500 text-sm">Διαχειριστείτε προϊόντα σε Ελληνικά & Αγγλικά.</p>
+                    </div>
+                    <button onclick="openProductModal()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all">
+                        <i data-lucide="plus" class="w-4 h-4"></i> ${t('newProduct')}
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                <th class="py-4 px-6">${t('photo')}</th>
+                                <th class="py-4 px-6">${t('nameAndTags')}</th>
+                                <th class="py-4 px-6">${t('category')}</th>
+                                <th class="py-4 px-6">${t('basePrice')}</th>
+                                <th class="py-4 px-6">${t('options')}</th>
+                                <th class="py-4 px-6 text-right">${t('actions')}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            ${products.length === 0 ? `
+                                <tr>
+                                    <td colspan="6" class="py-12 text-center text-slate-400">${t('noProducts')}</td>
+                                </tr>
+                            ` : products.map(p => {
+                                const cat = categories.find(c => c.id === p.categoryId);
+                                const optionsCount = (p.options || []).length;
+                                const prodName = lang === 'en' ? (p.nameEn || p.name) : p.name;
+                                const catName = cat ? (lang === 'en' ? (cat.nameEn || cat.name) : cat.name) : '—';
+                                return `
+                                    <tr class="hover:bg-slate-50/60 transition-colors">
+                                        <td class="py-4 px-6">
+                                            <img src="${p.image || 'https://placehold.co/100x100/e2e8f0/64748b?text=Img'}" alt="${p.name}" class="w-14 h-14 rounded-xl object-cover border border-slate-200 shadow-sm" onerror="this.src='https://placehold.co/100x100/e2e8f0/64748b?text=Error'">
+                                        </td>
+                                        <td class="py-4 px-6">
+                                            <div class="font-bold text-slate-900">${prodName}</div>
+                                            ${p.nameEn ? `<div class="text-xs text-slate-400 font-medium">${p.nameEn}</div>` : ''}
+                                            <div class="flex flex-wrap gap-1 mt-1">
+                                                ${(p.tags || []).map(t => `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md text-xs font-medium border border-amber-200">${t}</span>`).join('')}
+                                            </div>
+                                        </td>
+                                        <td class="py-4 px-6">
+                                            <span class="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-medium text-xs">
+                                                ${catName}
+                                            </span>
+                                        </td>
+                                        <td class="py-4 px-6 font-extrabold text-emerald-600">${Number(p.price).toFixed(2)} ${config.currency}</td>
+                                        <td class="py-4 px-6">
+                                            ${optionsCount > 0 ? `
+                                                <div class="flex flex-wrap gap-1">
+                                                    ${p.options.map(opt => `
+                                                        <span class="px-2 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
+                                                            ${lang === 'en' ? (opt.nameEn || opt.name) : opt.name} ${opt.price > 0 ? `(+${Number(opt.price).toFixed(2)}${config.currency})` : ''}
+                                                        </span>
+                                                    `).join('')}
+                                                </div>
+                                            ` : `<span class="text-xs text-slate-400">${t('noOptions')}</span>`}
+                                        </td>
+                                        <td class="py-4 px-6 text-right space-x-1">
+                                            <button onclick="openProductModal('${p.id}')" class="p-2 rounded-xl text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all">
+                                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                            </button>
+                                            <button onclick="deleteProduct('${p.id}')" class="p-2 rounded-xl text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-all">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        let tempOptions = [];
+
+        function openProductModal(productId = null) {
+            const categories = getCategories();
+            const products = getProducts();
+            const product = productId ? products.find(p => p.id === productId) : null;
+            const lang = getCurrentLang();
+
+            tempOptions = product && product.options ? [...product.options] : [];
+
+            const container = document.getElementById('modal-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 fade-in overflow-y-auto';
+            wrapper.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 text-slate-800 border border-slate-100 my-8">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-xl font-bold text-slate-900">${product ? t('editProduct') : t('newProduct')}</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <form onsubmit="handleSaveProduct(event, '${productId || ''}')" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">${t('productNameEl')}</label>
+                                <input type="text" id="prod-name" value="${product ? product.name : ''}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">${t('productNameEn')}</label>
+                                <input type="text" id="prod-name-en" value="${product ? product.nameEn || '' : ''}" placeholder="e.g. Espresso" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">${t('category')}</label>
+                                <select id="prod-category" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+                                    ${categories.map(c => `<option value="${c.id}" ${product && product.categoryId === c.id ? 'selected' : ''}>${c.name} (${c.nameEn || ''})</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">${t('basePrice')} (€)</label>
+                                <input type="number" step="0.01" min="0" id="prod-price" value="${product ? product.price : ''}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">${t('photo')}</label>
+                            <div class="space-y-2">
+                                <div class="flex gap-2">
+                                    <input type="file" id="prod-image-file" accept="image/*" class="hidden" onchange="handleProductFileSelect(this)">
+                                    <button type="button" onclick="document.getElementById('prod-image-file').click()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-200 transition-all">
+                                        <i data-lucide="upload" class="w-4 h-4"></i> ${t('localUpload')}
+                                    </button>
+                                </div>
+                                <input type="url" id="prod-image" value="${product ? product.image : ''}" placeholder="${t('orImageURL')}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            </div>
+                        </div>
+
+                        <!-- Options Section -->
+                        <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-3">
+                            <label class="block text-sm font-bold text-slate-900">${t('propertiesAndCosts')}</label>
+
+                            <div id="options-list" class="space-y-2"></div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center pt-2">
+                                <input type="text" id="opt-name-input" placeholder="Όνομα (GR) π.χ. Διπλός" class="px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <input type="text" id="opt-name-en-input" placeholder="Name (EN) e.g. Double" class="px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <div class="flex gap-2">
+                                    <input type="number" step="0.01" min="0" id="opt-price-input" placeholder="+€0.00" class="w-20 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                    <button type="button" onclick="addOptionToTempList()" class="flex-1 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all">
+                                        + ${t('add')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">${t('tagsComma')}</label>
+                            <input type="text" id="prod-tags" value="${product && product.tags ? product.tags.join(', ') : ''}" placeholder="Vegan, Best Seller" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">${t('descEl')}</label>
+                                <textarea id="prod-desc" rows="2" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">${product ? product.description || '' : ''}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">${t('descEn')}</label>
+                                <textarea id="prod-desc-en" rows="2" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">${product ? product.descriptionEn || '' : ''}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 flex justify-end gap-3">
+                            <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-sm transition-all">${t('cancel')}</button>
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all">${t('save')}</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            container.appendChild(wrapper);
+            renderTempOptionsList();
+            lucide.createIcons();
+        }
+
+        function renderTempOptionsList() {
+            const list = document.getElementById('options-list');
+            if (!list) return;
+
+            const config = getConfig();
+            const lang = getCurrentLang();
+
+            if (tempOptions.length === 0) {
+                list.innerHTML = `<p class="text-xs text-slate-400 italic">${t('noOptions')}</p>`;
+                return;
+            }
+
+            list.innerHTML = tempOptions.map((opt, index) => `
+                <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-slate-800">${opt.name}</span>
+                        ${opt.nameEn ? `<span class="text-slate-400 font-normal">(${opt.nameEn})</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-emerald-600">+${Number(opt.price || 0).toFixed(2)} ${config.currency}</span>
+                        <button type="button" onclick="removeOptionFromTempList(${index})" class="text-slate-400 hover:text-rose-600 transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function addOptionToTempList() {
+            const nameInput = document.getElementById('opt-name-input');
+            const nameEnInput = document.getElementById('opt-name-en-input');
+            const priceInput = document.getElementById('opt-price-input');
+
+            const name = nameInput.value.trim();
+            const nameEn = nameEnInput.value.trim();
+            const price = parseFloat(priceInput.value) || 0;
+
+            if (!name) {
+                showNotification('Παρακαλώ εισάγετε όνομα ιδιότητας.', 'error');
+                return;
+            }
+
+            tempOptions.push({ name, nameEn, price });
+            nameInput.value = '';
+            nameEnInput.value = '';
+            priceInput.value = '';
+            renderTempOptionsList();
+        }
+
+        function removeOptionFromTempList(index) {
+            tempOptions.splice(index, 1);
+            renderTempOptionsList();
+        }
+
+        function handleSaveProduct(e, productId) {
+            e.preventDefault();
+            const name = document.getElementById('prod-name').value.trim();
+            const nameEn = document.getElementById('prod-name-en').value.trim();
+            const categoryId = document.getElementById('prod-category').value;
+            const price = parseFloat(document.getElementById('prod-price').value);
+            const image = document.getElementById('prod-image').value.trim();
+            const tags = document.getElementById('prod-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+            const description = document.getElementById('prod-desc').value.trim();
+            const descriptionEn = document.getElementById('prod-desc-en').value.trim();
+
+            let products = getProducts();
+            if (productId) {
+                products = products.map(p => p.id === productId ? { ...p, name, nameEn, categoryId, price, image, tags, description, descriptionEn, options: tempOptions } : p);
+                showNotification('Το προϊόν ενημερώθηκε!');
+            } else {
+                products.push({ id: 'prod-' + Date.now(), name, nameEn, categoryId, price, image, tags, description, descriptionEn, options: tempOptions });
+                showNotification('Το προϊόν προστέθηκε!');
+            }
+            saveProducts(products);
+            document.querySelector('.fixed.inset-0').remove();
+            renderDesktopAdminContent();
+        }
+
+        function deleteProduct(productId) {
+            showConfirmModal(t('confirmDelete'), t('confirmDeleteMsg'), () => {
+                let products = getProducts().filter(p => p.id !== productId);
+                saveProducts(products);
+                showNotification('Διαγράφηκε.', 'info');
+                renderDesktopAdminContent();
+            });
+        }
+
+        function renderCategoriesAdmin(container) {
+            const categories = getCategories();
+            const products = getProducts();
+            const lang = getCurrentLang();
+
+            container.innerHTML = `
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">${t('categories')}</h2>
+                        <p class="text-slate-500 text-sm">Οργανώστε τις κατηγορίες του μενού.</p>
+                    </div>
+                    <button onclick="openCategoryModal()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all">
+                        <i data-lucide="plus" class="w-4 h-4"></i> ${t('newCategory')}
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    ${categories.map(cat => {
+                        const count = products.filter(p => p.categoryId === cat.id).length;
+                        return `
+                            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                        <i data-lucide="${cat.icon || 'folder'}" class="w-6 h-6"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-slate-900 text-base">${lang === 'en' ? (cat.nameEn || cat.name) : cat.name}</h3>
+                                        ${cat.nameEn ? `<span class="text-xs text-slate-400 block">${cat.nameEn}</span>` : ''}
+                                        <span class="text-xs text-indigo-600 font-semibold">${count} προϊόντα</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="openCategoryModal('${cat.id}')" class="p-2 rounded-xl text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="deleteCategory('${cat.id}')" class="p-2 rounded-xl text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-all">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function openCategoryModal(categoryId = null) {
+            const categories = getCategories();
+            const category = categoryId ? categories.find(c => c.id === categoryId) : null;
+
+            const container = document.getElementById('modal-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 fade-in';
+            wrapper.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-slate-800 border border-slate-100">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-xl font-bold text-slate-900">${category ? t('editCategory') : t('newCategory')}</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <form onsubmit="handleSaveCategory(event, '${categoryId || ''}')" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">${t('catNameEl')}</label>
+                            <input type="text" id="cat-name" value="${category ? category.name : ''}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">${t('catNameEn')}</label>
+                            <input type="text" id="cat-name-en" value="${category ? category.nameEn || '' : ''}" placeholder="e.g. Coffee & Drinks" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">${t('iconName')}</label>
+                            <input type="text" id="cat-icon" value="${category ? category.icon || 'folder' : 'folder'}" placeholder="coffee, utensils, cake..." required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div class="pt-4 flex justify-end gap-3">
+                            <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-sm transition-all">${t('cancel')}</button>
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all">${t('save')}</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            container.appendChild(wrapper);
+            lucide.createIcons();
+        }
+
+        function handleSaveCategory(e, categoryId) {
+            e.preventDefault();
+            const name = document.getElementById('cat-name').value.trim();
+            const nameEn = document.getElementById('cat-name-en').value.trim();
+            const icon = document.getElementById('cat-icon').value.trim();
+
+            let categories = getCategories();
+            if (categoryId) {
+                categories = categories.map(c => c.id === categoryId ? { ...c, name, nameEn, icon } : c);
+                showNotification('Η κατηγορία ενημερώθηκε!');
+            } else {
+                categories.push({ id: 'cat-' + Date.now(), name, nameEn, icon });
+                showNotification('Η κατηγορία προστέθηκε!');
+            }
+            saveCategories(categories);
+            document.querySelector('.fixed.inset-0').remove();
+            renderDesktopAdminContent();
+        }
+
+        function deleteCategory(categoryId) {
+            showConfirmModal(t('confirmDelete'), t('confirmDeleteMsg'), () => {
+                let categories = getCategories().filter(c => c.id !== categoryId);
+                saveCategories(categories);
+                showNotification('Διαγράφηκε.', 'info');
+                renderDesktopAdminContent();
+            });
+        }
+
+        function renderTablesAndQrAdmin(container) {
+            const tables = getTables();
+            const baseUrl = new URL('customer.html', window.location.href).href;
+
+            container.innerHTML = `
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">${t('tablesAndQr')}</h2>
+                        <p class="text-slate-500 text-sm">Δημιουργήστε και εκτυπώστε QR codes για τα τραπέζια σας.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="openTableModal()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all">
+                            <i data-lucide="plus" class="w-4 h-4"></i> ${t('addTable')}
+                        </button>
+                        <button onclick="window.print()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-medium text-sm shadow-md transition-all">
+                            <i data-lucide="printer" class="w-4 h-4"></i> ${t('print')}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    ${tables.length === 0 ? `
+                        <div class="col-span-full py-16 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                            <i data-lucide="qr-code" class="w-12 h-12 mx-auto mb-2 opacity-40"></i>
+                            <p class="text-sm font-medium">Δεν υπάρχουν καταχωρημένα τραπέζια.</p>
+                        </div>
+                    ` : tables.map(tItem => {
+                        const targetUrl = `${baseUrl}?view=customer&table=${tItem.id}`;
+                        return `
+                            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col items-center text-center relative group">
+                                <div class="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onclick="openTableModal('${tItem.id}')" class="p-1.5 rounded-lg text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all">
+                                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                    <button onclick="deleteTable('${tItem.id}')" class="p-1.5 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                                <span class="px-3.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold text-sm mb-4 max-w-[200px] truncate">
+                                    ${tItem.name}
+                                </span>
+                                <div id="qrcode-desktop-${tItem.id}" class="p-3 bg-white border border-slate-100 rounded-xl shadow-inner mb-4 flex justify-center"></div>
+                                <p class="text-[11px] text-slate-400 truncate w-full mb-4">${targetUrl}</p>
+                                <div class="flex items-center gap-2 w-full">
+                                    <a href="${targetUrl}" target="_blank" class="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all text-center">
+                                        ${t('open')}
+                                    </a>
+                                    <button onclick="downloadQr('${tItem.id}', '${tItem.name.replace(/'/g, "")}')" class="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-semibold transition-all">
+                                        <i data-lucide="download" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            lucide.createIcons();
+
+            setTimeout(() => {
+                tables.forEach(tItem => {
+                    const el = document.getElementById(`qrcode-desktop-${tItem.id}`);
+                    if (el) {
+                        el.innerHTML = '';
+                        const targetUrl = `${new URL('customer.html', window.location.href).href}?table=${encodeURIComponent(tItem.id)}`;
+                        new QRCode(el, {
+                            text: targetUrl,
+                            width: 130,
+                            height: 130,
+                            colorDark : "#0f172a",
+                            colorLight : "#ffffff",
+                            correctLevel : QRCode.CorrectLevel.H
+                        });
+                    }
+                });
+            }, 50);
+        }
+
+        function openTableModal(tableId = null) {
+            const tables = getTables();
+            const table = tableId ? tables.find(t => t.id === tableId) : null;
+
+            const container = document.getElementById('modal-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 fade-in';
+            wrapper.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-slate-800 border border-slate-100">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-xl font-bold text-slate-900">${table ? t('editTable') : t('newTable')}</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <form onsubmit="handleSaveTable(event, '${tableId || ''}')" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">${t('tableNameOrArea')}</label>
+                            <input type="text" id="table-custom-name" value="${table ? table.name : ''}" placeholder="π.χ. Τραπέζι 12 / VIP" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div class="pt-4 flex justify-end gap-3">
+                            <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-sm transition-all">${t('cancel')}</button>
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all">${t('save')}</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            container.appendChild(wrapper);
+            lucide.createIcons();
+        }
+
+        function handleSaveTable(e, tableId) {
+            e.preventDefault();
+            const name = document.getElementById('table-custom-name').value.trim();
+
+            let tables = getTables();
+            if (tableId) {
+                tables = tables.map(t => t.id === tableId ? { ...t, name } : t);
+                showNotification('Το τραπέζι ενημερώθηκε!');
+            } else {
+                const newId = 't-' + Date.now();
+                tables.push({ id: newId, name });
+                showNotification('Το τραπέζι προστέθηκε!');
+            }
+            saveTables(tables);
+            document.querySelector('.fixed.inset-0').remove();
+            renderDesktopAdminContent();
+        }
+
+        function deleteTable(tableId) {
+            showConfirmModal(t('confirmDelete'), t('confirmDeleteMsg'), () => {
+                let tables = getTables().filter(t => t.id !== tableId);
+                saveTables(tables);
+                showNotification('Διαγράφηκε.', 'info');
+                renderDesktopAdminContent();
+            });
+        }
+
+        function downloadQr(tableId, tableName) {
+            const el = document.getElementById(`qrcode-desktop-${tableId}`);
+            const img = el.querySelector('img');
+            if (img) {
+                const link = document.createElement('a');
+                link.href = img.src;
+                link.download = `QR_${tableName.replace(/\s+/g, '_')}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showNotification(`Το QR Code για "${tableName}" αποθηκεύτηκε!`);
+            }
+        }
+
+        function renderMobilePreviewAdmin(container) {
+            const tables = getTables();
+            const firstTableId = tables.length > 0 ? tables[0].id : 't-1';
+            const baseUrl = `${new URL('customer.html', window.location.href).href}?table=${encodeURIComponent(firstTableId)}`;
+
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-2">
+                    <div class="text-center mb-5">
+                        <h2 class="text-2xl font-bold text-slate-900">${t('livePreview')}</h2>
+                        <p class="text-slate-500 text-sm">Δείτε πώς εμφανίζεται ο κατάλογος στις συσκευές των πελατών.</p>
+                        
+                        <div class="inline-flex items-center gap-1 p-1.5 bg-slate-200/80 rounded-xl mt-4">
+                            <button onclick="setPreviewDevice('mobile')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${previewDeviceMode==='mobile' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+                                <i data-lucide="smartphone" class="w-4 h-4"></i> ${t('mobile')}
+                            </button>
+                            <button onclick="setPreviewDevice('tablet')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${previewDeviceMode==='tablet' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+                                <i data-lucide="tablet" class="w-4 h-4"></i> ${t('tablet')}
+                            </button>
+                            <button onclick="setPreviewDevice('desktop')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${previewDeviceMode==='desktop' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+                                <i data-lucide="monitor" class="w-4 h-4"></i> ${t('pcDesktop')}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="transition-all duration-300 ease-in-out ${
+                        previewDeviceMode === 'mobile' 
+                            ? 'w-[360px] h-[700px] bg-slate-900 rounded-[40px] p-3 shadow-2xl border-4 border-slate-700' 
+                            : previewDeviceMode === 'tablet' 
+                            ? 'w-[680px] h-[720px] bg-slate-900 rounded-[32px] p-4 shadow-2xl border-4 border-slate-700' 
+                            : 'w-full max-w-5xl h-[700px] bg-slate-900 rounded-2xl p-3 shadow-2xl border-4 border-slate-800'
+                    } relative overflow-hidden flex flex-col">
+                        
+                        ${previewDeviceMode === 'mobile' ? '<div class="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-5 bg-slate-900 rounded-b-2xl z-40"></div>' : ''}
+
+                        <div class="w-full h-full bg-slate-50 ${previewDeviceMode==='mobile'?'rounded-[32px]':previewDeviceMode==='tablet'?'rounded-[20px]':'rounded-b-xl'} overflow-hidden flex flex-col">
+                            <iframe src="${baseUrl}" class="w-full h-full border-0"></iframe>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function setPreviewDevice(mode) {
+            previewDeviceMode = mode;
+            renderDesktopAdminContent();
+        }
+
+        function renderSettingsAdmin(container) {
+            const config = getConfig();
+
+            container.innerHTML = `
+                <div class="max-w-xl bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+                    <h2 class="text-xl font-bold text-slate-900 mb-1">${t('storeSettings')}</h2>
+                    <p class="text-slate-500 text-sm mb-6">Ενημερώστε τα στοιχεία της επιχείρησής σας.</p>
+
+                    <form onsubmit="handleSaveSettings(event)" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">${t('storeName')}</label>
+                            <input type="text" id="setting-storeName" value="${config.storeName}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">${t('storeLogo')}</label>
+                            <div class="space-y-2">
+                                <div class="flex gap-2">
+                                    <input type="file" id="logo-image-file" accept="image/*" class="hidden" onchange="handleLogoFileSelect(this)">
+                                    <button type="button" onclick="document.getElementById('logo-image-file').click()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-200 transition-all">
+                                        <i data-lucide="upload" class="w-4 h-4"></i> ${t('localUpload')}
+                                    </button>
+                                </div>
+                                <input type="url" id="setting-logoUrl" value="${config.logoUrl || ''}" placeholder="${t('orImageURL')}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">${t('storePhone')}</label>
+                            <input type="tel" id="setting-phone" value="${config.phone || ''}" placeholder="2101234567" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">${t('currencySymbol')}</label>
+                            <input type="text" id="setting-currency" value="${config.currency}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div class="pt-4 flex justify-end">
+                            <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all">
+                                ${t('save')}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function handleSaveSettings(e) {
+            e.preventDefault();
+            const storeName = document.getElementById('setting-storeName').value.trim();
+            const logoUrl = document.getElementById('setting-logoUrl').value.trim();
+            const phone = document.getElementById('setting-phone').value.trim();
+            const currency = document.getElementById('setting-currency').value.trim();
+
+            saveConfig({ storeName, logoUrl, phone, currency });
+            showNotification('Οι ρυθμίσεις ενημερώθηκαν!');
+            renderDesktopAdminView(document.getElementById('app'));
+        }
+
+        function handleProductFileSelect(input) {
+            handleImageUpload(input, function(base64Image) {
+                document.getElementById('prod-image').value = base64Image;
+                showNotification('Η φωτογραφία ανέβηκε επιτυχώς!');
+            });
+        }
+
+        function handleLogoFileSelect(input) {
+            handleImageUpload(input, function(base64Image) {
+                document.getElementById('setting-logoUrl').value = base64Image;
+                showNotification('Το λογότυπο ανέβηκε επιτυχώς!');
+            });
+        }
+
+        function renderCustomerView(container, tableId) {
+            const config = getConfig();
+            const categories = getCategories();
+            const products = getProducts();
+            const tables = getTables();
+            const lang = getCurrentLang();
+
+            const currentTable = tables.find(tItem => tItem.id === tableId) || { name: 'Τραπέζι' };
+
+            const filteredProducts = activeCustomerCategory === 'all'
+                ? products
+                : products.filter(p => p.categoryId === activeCustomerCategory);
+
+            const totalCartItemsCount = customerCart.reduce((sum, item) => sum + item.quantity, 0);
+
+            container.innerHTML = `
+                <!-- Customer Header -->
+                <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+                    <div class="max-w-md mx-auto px-4 py-3.5 flex items-center justify-between">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-extrabold text-sm shadow-md overflow-hidden shrink-0">
+                                ${config.logoUrl ? `<img src="${config.logoUrl}" alt="Logo" class="w-full h-full object-cover" onerror="this.remove()">` : `<i data-lucide="store" class="w-5 h-5"></i>`}
+                            </div>
+                            <div class="min-w-0">
+                                <h1 class="font-bold text-sm truncate leading-tight">${config.storeName}</h1>
+                                <span class="text-[11px] text-amber-400 font-medium">${t('digitalMenu')}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 shrink-0">
+                            <!-- Customer Language Switcher -->
+                            <div class="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                                <button onclick="setLanguage('el')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${lang === 'el' ? 'bg-amber-500 text-white' : 'text-slate-400'}">
+                                    GR
+                                </button>
+                                <button onclick="setLanguage('en')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${lang === 'en' ? 'bg-amber-500 text-white' : 'text-slate-400'}">
+                                    EN
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl font-bold text-xs shadow-xs max-w-[120px] truncate">
+                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+                                <span class="truncate">${currentTable.name}</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Customer Main Content -->
+                <main class="flex-1 max-w-md w-full mx-auto px-4 py-5 pb-28">
+                    <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-md mb-6 relative overflow-hidden">
+                        <div class="relative z-10">
+                            <h2 class="text-lg font-extrabold mb-1">${t('menuAndOrder')}</h2>
+                            <p class="text-amber-100 text-xs">${t('menuOrderSubtitle')}</p>
+                        </div>
+                        <div class="absolute -right-4 -bottom-4 opacity-20">
+                            <i data-lucide="coffee" class="w-32 h-32"></i>
+                        </div>
+                    </div>
+
+                    <!-- Category Scroll Tabs -->
+                    <div class="relative mb-5">
+                        <div class="category-scroll-container flex items-center gap-2 pb-2.5 w-full px-0.5">
+                            <button onclick="filterCustomerCategory('${tableId}', 'all')" class="shrink-0 px-4 py-2 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5 ${activeCustomerCategory === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}">
+                                <i data-lucide="grid" class="w-3.5 h-3.5"></i> ${t('all')}
+                            </button>
+                            ${categories.map(cat => {
+                                const catDisplayName = lang === 'en' ? (cat.nameEn || cat.name) : cat.name;
+                                return `
+                                    <button onclick="filterCustomerCategory('${tableId}', '${cat.id}')" class="shrink-0 px-4 py-2 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5 ${activeCustomerCategory === cat.id ? 'bg-slate-900 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}">
+                                        <i data-lucide="${cat.icon || 'folder'}" class="w-3.5 h-3.5"></i> ${catDisplayName}
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Products List -->
+                    <div class="space-y-3.5">
+                        ${filteredProducts.length === 0 ? `
+                            <div class="py-16 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+                                <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+                                <p class="text-xs">${t('noProducts')}</p>
+                            </div>
+                        ` : filteredProducts.map(p => {
+                            const prodName = lang === 'en' ? (p.nameEn || p.name) : p.name;
+                            const prodDesc = lang === 'en' ? (p.descriptionEn || p.description) : p.description;
+                            return `
+                                <div class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-xs flex gap-3.5 items-center">
+                                    <img src="${p.image || 'https://placehold.co/200x200/e2e8f0/64748b?text=Menu'}" alt="${prodName}" class="w-20 h-20 rounded-xl object-cover shrink-0 border border-slate-100" onerror="this.src='https://placehold.co/200x200/e2e8f0/64748b?text=Error'">
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="font-bold text-slate-900 text-sm truncate mb-0.5">${prodName}</h3>
+                                        <p class="text-slate-500 text-xs line-clamp-2 mb-1.5">${prodDesc || ''}</p>
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-extrabold text-amber-600 text-sm">${Number(p.price).toFixed(2)} ${config.currency}</span>
+                                            <button onclick="openProductAddToCartModal('${p.id}', '${tableId}')" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm flex items-center gap-1 transition-all">
+                                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> ${t('add')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </main>
+
+                <!-- Floating Bottom Cart Bar -->
+                ${totalCartItemsCount > 0 ? `
+                    <div class="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-slate-900/90 to-transparent backdrop-blur-xs flex justify-center">
+                        <button onclick="openCartModal('${tableId}')" class="w-full max-w-md bg-amber-500 hover:bg-amber-600 text-white rounded-2xl p-4 shadow-xl flex items-center justify-between font-bold transition-all transform active:scale-[0.99]">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-xs font-bold">
+                                    ${totalCartItemsCount}
+                                </div>
+                                <span class="text-sm">${t('viewCart')}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-sm">
+                                <span>${customerCart.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)} ${config.currency}</span>
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </div>
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            lucide.createIcons();
+        }
+
+        function filterCustomerCategory(tableId, catId) {
+            activeCustomerCategory = catId;
+            renderCustomerView(document.getElementById('app'), tableId);
+        }
+
+        function openProductAddToCartModal(productId, tableId) {
+            const products = getProducts();
+            const config = getConfig();
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const lang = getCurrentLang();
+            const prodName = lang === 'en' ? (product.nameEn || product.name) : product.name;
+            const prodDesc = lang === 'en' ? (product.descriptionEn || product.description) : product.description;
+
+            const container = document.getElementById('modal-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4 fade-in';
+            
+            wrapper.innerHTML = `
+                <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-md w-full p-6 text-slate-800 border border-slate-100 max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-slate-900">${prodName}</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-all">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <img src="${product.image || 'https://placehold.co/400x200'}" class="w-full h-40 rounded-2xl object-cover mb-4 border border-slate-100" onerror="this.src='https://placehold.co/400x200/e2e8f0/64748b?text=Img'">
+                    <p class="text-xs text-slate-500 mb-4">${prodDesc || ''}</p>
+
+                    ${(product.options && product.options.length > 0) ? `
+                        <div class="mb-5">
+                            <label class="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">${t('selectOptions')}</label>
+                            <div class="space-y-2">
+                                ${product.options.map((opt, idx) => {
+                                    const optName = lang === 'en' ? (opt.nameEn || opt.name) : opt.name;
+                                    return `
+                                        <label class="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-amber-50/50 hover:border-amber-200 transition-all">
+                                            <div class="flex items-center gap-3">
+                                                <input type="checkbox" onchange="toggleOptionSelection(${idx})" class="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 border-slate-300">
+                                                <span class="text-xs font-bold text-slate-800">${optName}</span>
+                                            </div>
+                                            <span class="text-xs font-extrabold text-amber-600">+${Number(opt.price).toFixed(2)} ${config.currency}</span>
+                                        </label>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="pt-2 flex items-center justify-between border-t border-slate-100">
+                        <div>
+                            <span class="block text-[10px] text-slate-400 uppercase font-bold">${t('total')}</span>
+                            <span id="modal-calculated-price" class="text-xl font-extrabold text-amber-600">${Number(product.price).toFixed(2)} ${config.currency}</span>
+                        </div>
+                        <button onclick="confirmAddToCart('${product.id}', '${tableId}')" class="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 transition-all">
+                            ${t('addToCart')}
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(wrapper);
+            lucide.createIcons();
+
+            window.currentModalSelectedOptions = [];
+            window.toggleOptionSelection = function(idx) {
+                const pos = window.currentModalSelectedOptions.indexOf(idx);
+                if (pos > -1) {
+                    window.currentModalSelectedOptions.splice(pos, 1);
+                } else {
+                    window.currentModalSelectedOptions.push(idx);
+                }
+                
+                let optionsTotal = 0;
+                window.currentModalSelectedOptions.forEach(i => {
+                    optionsTotal += Number(product.options[i].price || 0);
+                });
+                const total = product.price + optionsTotal;
+                document.getElementById('modal-calculated-price').innerText = `${total.toFixed(2)} ${config.currency}`;
+            };
+        }
+
+        function confirmAddToCart(productId, tableId) {
+            const products = getProducts();
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const selectedIndices = window.currentModalSelectedOptions || [];
+            const selectedOptions = selectedIndices.map(i => product.options[i]);
+
+            let extraPrice = 0;
+            selectedOptions.forEach(o => extraPrice += Number(o.price || 0));
+
+            const unitPrice = product.price + extraPrice;
+
+            customerCart.push({
+                cartItemId: 'cart-' + Date.now(),
+                product,
+                selectedOptions,
+                quantity: 1,
+                unitPrice,
+                totalPrice: unitPrice
+            });
+
+            document.querySelector('.fixed.inset-0').remove();
+            showNotification(`Το "${product.name}" προστέθηκε στο καλάθι!`);
+            renderCustomerView(document.getElementById('app'), tableId);
+        }
+
+        function openCartModal(tableId) {
+            const config = getConfig();
+            const tables = getTables();
+            const lang = getCurrentLang();
+            const currentTable = tables.find(tItem => tItem.id === tableId) || { name: 'Τραπέζι' };
+
+            const container = document.getElementById('modal-container');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4 fade-in';
+
+            const totalCartPrice = customerCart.reduce((sum, item) => sum + item.totalPrice, 0);
+
+            wrapper.innerHTML = `
+                <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-md w-full p-6 text-slate-800 border border-slate-100 max-h-[90vh] flex flex-col">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">${t('myCart')}</h3>
+                            <p class="text-xs text-amber-600 font-semibold">${currentTable.name}</p>
+                        </div>
+                        <button onclick="this.closest('.fixed').remove()" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-all">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto space-y-3 my-2 pr-1">
+                        ${customerCart.map((item, idx) => {
+                            const prodName = lang === 'en' ? (item.product.nameEn || item.product.name) : item.product.name;
+                            return `
+                                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between">
+                                    <div class="flex-1 min-w-0 pr-3">
+                                        <h4 class="font-bold text-slate-900 text-xs truncate">${prodName}</h4>
+                                        ${item.selectedOptions.length > 0 ? `
+                                            <p class="text-[11px] text-slate-500 truncate">
+                                                ${item.selectedOptions.map(o => (lang === 'en' ? (o.nameEn || o.name) : o.name)).join(', ')}
+                                            </p>
+                                        ` : ''}
+                                        <span class="text-xs font-extrabold text-amber-600">${item.totalPrice.toFixed(2)} ${config.currency}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="updateCartItemQty(${idx}, -1, '${tableId}')" class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold shadow-xs">
+                                            -
+                                        </button>
+                                        <span class="text-xs font-bold text-slate-900 w-4 text-center">${item.quantity}</span>
+                                        <button onclick="updateCartItemQty(${idx}, 1, '${tableId}')" class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold shadow-xs">
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-500 uppercase">${t('totalAmount')}</span>
+                            <span class="text-xl font-extrabold text-amber-600">${totalCartPrice.toFixed(2)} ${config.currency}</span>
+                        </div>
+
+                        <!-- Direct Call Button -->
+                        <a href="tel:${config.phone}" onclick="handleCallOrder('${currentTable.name}')" class="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="phone-call" class="w-4 h-4"></i>
+                            <span>${t('placeOrderCall').replace('{phone}', config.phone || '')}</span>
+                        </a>
+                    </div>
+                </div>
+            `;
+            container.appendChild(wrapper);
+            lucide.createIcons();
+        }
+
+        function updateCartItemQty(idx, change, tableId) {
+            if (!customerCart[idx]) return;
+            customerCart[idx].quantity += change;
+            if (customerCart[idx].quantity <= 0) {
+                customerCart.splice(idx, 1);
+            } else {
+                customerCart[idx].totalPrice = customerCart[idx].unitPrice * customerCart[idx].quantity;
+            }
+
+            document.querySelector('.fixed.inset-0')?.remove();
+            if (customerCart.length > 0) {
+                openCartModal(tableId);
+            }
+            renderCustomerView(document.getElementById('app'), tableId);
+        }
+
+        function handleCallOrder(tableName) {
+            showNotification(`Γίνεται κλήση στο κατάστημα για το ${tableName}!`);
+        }
+
+        window.onload = function() {
+            renderApp();
+        };
+
+        window.onpopstate = function() {
+            renderApp();
+        };
+    </script>
+</body>
+</html>
