@@ -55,6 +55,7 @@
         const STORAGE_KEY_CONFIG = 'menu_config_v5';
         const STORAGE_KEY_TABLES = 'menu_tables_v5';
         const STORAGE_KEY_LANG = 'menu_lang_v5';
+        const CUSTOMER_LANG_KEY = 'menu_customer_lang_v1';
 
         // Firebase shared database configuration
         const firebaseConfig = {
@@ -92,7 +93,7 @@
                     if (data.products) localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(data.products));
                     if (data.config) localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(data.config));
                     if (data.tables) localStorage.setItem(STORAGE_KEY_TABLES, JSON.stringify(data.tables));
-                    if (data.lang) localStorage.setItem(STORAGE_KEY_LANG, data.lang);
+                    // The customer's language preference is device-local; do not overwrite it from the shared menu.
                     applyingRemoteData = false;
                     firebaseReady = true;
                     renderApp();
@@ -243,11 +244,11 @@
         };
 
         function getCurrentLang() {
-            return localStorage.getItem(STORAGE_KEY_LANG) || 'el';
+            // Customers choose their own display language; it does not change the shared menu language.
+            return localStorage.getItem(CUSTOMER_LANG_KEY) || localStorage.getItem(STORAGE_KEY_LANG) || 'el';
         }
         function setLanguage(lang) {
-            localStorage.setItem(STORAGE_KEY_LANG, lang);
-            syncFieldToCloud('lang', lang);
+            localStorage.setItem(CUSTOMER_LANG_KEY, lang);
             renderApp();
         }
         function t(key) {
